@@ -21,3 +21,10 @@ SDA → GPIO21
 SCL → GPIO22
 VCC → 3.3V
 GND → GND
+
+
+X - SHAPED ORIENTATION
+
+M1         M2
+      X
+M4         M4
