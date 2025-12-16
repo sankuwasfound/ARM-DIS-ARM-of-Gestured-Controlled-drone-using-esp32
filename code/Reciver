@@ -1,0 +1,77 @@
+#include <WiFi.h>
+#include <esp_now.h>
+#include <ESP32Servo.h>
+
+Servo m1, m2, m3, m4;
+
+// ===== PACKET FORMAT (MUST MATCH TX) =====
+typedef struct {
+  uint8_t arm;
+  uint16_t throttle;
+} control_packet_t;
+
+control_packet_t rx;
+bool armed = false;
+unsigned long lastPacket = 0;
+
+// ===== ESP-NOW RECEIVE CALLBACK (NEW API) =====
+void onReceive(const esp_now_recv_info_t *info,
+               const uint8_t *data,
+               int len) {
+
+  if (len != sizeof(rx)) return;
+
+  memcpy(&rx, data, sizeof(rx));
+  armed = rx.arm;
+  lastPacket = millis();
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW INIT FAILED");
+    return;
+  }
+
+  esp_now_register_recv_cb(onReceive);
+
+  // ESC signal pins
+  m1.attach(25);
+  m2.attach(26);
+  m3.attach(27);
+  m4.attach(14);
+
+  stopMotors();
+  Serial.println("DRONE READY (ARM/DISARM)");
+}
+
+void loop() {
+  // FAILSAFE
+  if (millis() - lastPacket > 500) {
+    armed = false;
+  }
+
+  if (!armed) {
+    stopMotors();
+  } else {
+    idleMotors();
+  }
+}
+
+// ===== MOTOR FUNCTIONS =====
+void stopMotors() {
+  m1.writeMicroseconds(1000);
+  m2.writeMicroseconds(1000);
+  m3.writeMicroseconds(1000);
+  m4.writeMicroseconds(1000);
+}
+
+void idleMotors() {
+  m1.writeMicroseconds(1100);
+  m2.writeMicroseconds(1100);
+  m3.writeMicroseconds(1100);
+  m4.writeMicroseconds(1100);
+}
