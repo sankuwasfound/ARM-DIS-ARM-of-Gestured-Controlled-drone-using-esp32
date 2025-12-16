@@ -1,0 +1,72 @@
+#include <WiFi.h>
+#include <esp_now.h>
+#include <Wire.h>
+#include "MPU6050.h"
+
+MPU6050 mpu;
+
+// 🔴 DRONE (RECEIVER) ESP32 MAC
+uint8_t droneMAC[] = {0x00, 0x4B, 0x12, 0x2F, 0x0C, 0x64};
+
+// ===== PACKET FORMAT (MUST MATCH RX) =====
+typedef struct {
+  uint8_t arm;      // 0 = disarm, 1 = arm
+  uint16_t throttle; // not used yet
+} control_packet_t;
+
+control_packet_t packet;
+bool armed = false;
+
+#define PITCH_THRESHOLD 0.6
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // WiFi + ESP-NOW
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW INIT FAILED");
+    return;
+  }
+
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, droneMAC, 6);
+  peer.channel = 0;
+  peer.encrypt = false;
+
+  if (esp_now_add_peer(&peer) != ESP_OK) {
+    Serial.println("FAILED TO ADD PEER");
+    return;
+  }
+
+  // MPU6050
+  Wire.begin(21, 22);
+  mpu.initialize();
+
+  Serial.println("TX READY");
+}
+
+void loop() {
+  int16_t ax, ay, az;
+  mpu.getAcceleration(&ax, &ay, &az);
+
+  float pitch = ax / 16384.0;
+
+  if (pitch < -PITCH_THRESHOLD) {
+    armed = true;      // forward tilt → ARM
+  } 
+  else if (pitch > PITCH_THRESHOLD) {
+    armed = false;     // backward tilt → DISARM
+  }
+
+  packet.arm = armed ? 1 : 0;
+  packet.throttle = 1000;
+
+  esp_now_send(droneMAC, (uint8_t*)&packet, sizeof(packet));
+
+  Serial.print("ARM = ");
+  Serial.println(packet.arm);
+
+  delay(50);
+}
