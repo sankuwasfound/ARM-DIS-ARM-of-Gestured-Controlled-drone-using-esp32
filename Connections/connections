@@ -1,0 +1,23 @@
+Receiver (Drone ESP32)
+
+Power ESP32 via USB or BEC (5V)
+
+ESC signal wires connected:
+
+M1 → GPIO25
+M2 → GPIO26
+M3 → GPIO27
+M4 → GPIO14
+
+ESC GND ↔ ESP32 GND (common ground)
+
+Transmitter ESP32
+
+Power via USB / power bank
+
+MPU6050 connected:
+
+SDA → GPIO21
+SCL → GPIO22
+VCC → 3.3V
+GND → GND
